@@ -1,35 +1,47 @@
 # ---------------- Stage 1: Build Dependencies ----------------
-# Use the official lightweight Python 3.15 slim image as the base for building
-FROM python:3.15-slim AS builder
+# Use the official lightweight Python 3.13 slim image as the base for building
+FROM python:3.13-slim AS builder
 
 # Set the working directory inside the container to /app
 WORKDIR /app
 
+# Install system dependencies required for psycopg2
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy only requirements.txt first (leveraging Docker layer caching)
 COPY requirements.txt .
 
-# Install Python dependencies into the builder image (user space to keep it clean)
-RUN pip install --user --no-cache-dir -r requirements.txt
+# Install Python dependencies into /install (accessible by any user)
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 
 # ---------------- Stage 2: Final Runtime Image ----------------
 # Use another slim Python image for the final container (smaller, secure)
-FROM python:3.15-slim
+FROM python:3.13-slim
 
 # Set the working directory again in the final image
 WORKDIR /app
 
-# Copy installed dependencies from builder stage into final image
-COPY --from=builder /root/.local /root/.local
+# Install only runtime library (not gcc/build-essential — smaller image)
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Update PATH so Python can find the installed packages
-ENV PATH=/root/.local/bin:$PATH
+# Create a non-root user BEFORE copying files so we can set ownership
+RUN adduser --disabled-password --gecos "" appuser
 
-# Copy the rest of the application code into the container
-COPY . .
+# Copy installed dependencies from builder into a system-level path
+COPY --from=builder /install /usr/local
 
-# Create a non-root user for security best practices
-RUN adduser --disabled-password appuser
+# Copy the application code and set ownership to appuser
+COPY --chown=appuser:appuser . .
+
+# Remove .env if accidentally copied — secrets must come from runtime environment
+RUN rm -f .env
 
 # Switch to the non-root user
 USER appuser
