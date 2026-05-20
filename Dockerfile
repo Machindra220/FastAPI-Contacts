@@ -1,6 +1,6 @@
 # ---------------- Stage 1: Build Dependencies ----------------
 # Use the official lightweight Python 3.13 slim image as the base for building
-FROM python:3.13-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Set the working directory inside the container to /app
 WORKDIR /app
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---------------- Stage 2: Final Runtime Image ----------------
 # Use another slim Python image for the final container (smaller, secure)
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 # Set the working directory again in the final image
 WORKDIR /app
