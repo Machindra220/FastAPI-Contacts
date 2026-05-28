@@ -51,3 +51,6 @@ EXPOSE 8000
 
 # Run the app using Gunicorn with Uvicorn workers (production-grade server)
 CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:8000"]
+
+# Wrap your server execution initialization using ddtrace-run
+CMD ["ddtrace-run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

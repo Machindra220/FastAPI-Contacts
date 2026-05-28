@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # 1. Your Core FastAPI Application Container
+  api:
+    image: machindra220/fastapi-contacts:latest
+    container_name: fastapi_api_prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://sre_user:SecurePass123@db:5432/contacts_db
+      - DD_SERVICE=fastapi-contacts
+      - DD_ENV=production
+      - DD_VERSION=1.0.0
+      - DD_AGENT_HOST=datadog-agent
+      - DD_LOGS_INJECTION=true  # Links application logs directly to APM traces
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - production_network
+
+  # 2. Stateful Database Layer with Health Check Guards
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db_prod
+    environment:
+      - POSTGRES_USER=sre_user
+      - POSTGRES_PASSWORD=SecurePass123
+      - POSTGRES_DB=contacts_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sre_user -d contacts_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - production_network
+
+  # 3. Datadog Observability Agent (Crucial Architect Talking Point)
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:latest
+    container_name: datadog_agent_sidecar
+    environment:
+      - DD_API_KEY=YOUR_DATADOG_API_KEY  # Replace with your actual Datadog token
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/仔fs/cgroup/:/host/sys/fs/cgroup:ro
+    networks:
+      - production_network
+
+volumes:
+  postgres_data:
+
+networks:
+  production_network:
+    driver: bridge
